@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: myrag-mcp-server-standalone
+    environment:
+      # 如果后端运行在其他位置，可直接连接，例如 http://host.docker.internal:8080/api/v1
+      - API_BASE_URL=${API_BASE_URL:-http://host.docker.internal:8080/api/v1}
+      - TRANSPORT=http
+      - PORT=8000
+    ports:
+      - "8000:8000"
+    restart: unless-stopped

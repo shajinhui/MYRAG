@@ -1,0 +1,55 @@
+# ============================================================
+# MYRAG 后端 —— 多阶段 Docker 构建
+# ============================================================
+
+# 阶段 1：安装 Python 依赖
+FROM python:3.11-slim AS deps
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc g++ \
+    libpq-dev \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+
+# 阶段 2：预下载机器学习模型（约 2.5GB，缓存为 Docker 层）
+FROM deps AS models
+
+COPY backend/scripts/download_models.py /tmp/download_models.py
+RUN python /tmp/download_models.py
+
+
+# 阶段 3：运行时镜像
+FROM python:3.11-slim AS runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    libgl1 \
+    libglib2.0-0 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app/backend
+
+# 从依赖阶段复制已安装的软件包
+COPY --from=deps /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=deps /usr/local/bin /usr/local/bin
+
+# 从模型阶段复制预下载的模型
+COPY --from=models /root/.cache/huggingface /root/.cache/huggingface
+
+# 复制后端源码
+COPY backend/ .
+
+# 创建运行时目录
+RUN mkdir -p data/docling data/lightrag uploads
+
+EXPOSE 8080
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]

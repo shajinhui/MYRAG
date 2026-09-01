@@ -1,0 +1,35 @@
+# MYRAG —— 仅开发服务（PostgreSQL + ChromaDB）
+# 用法：docker compose -f docker-compose.services.yml up -d
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: myrag-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: myrag
+    ports:
+      - "5433:5432"
+    volumes:
+      - myrag_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: myrag-chromadb
+    ports:
+      - "8002:8000"
+    volumes:
+      - myrag_chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+
+volumes:
+  myrag_postgres_data:
+  myrag_chroma_data:
